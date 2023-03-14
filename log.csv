@@ -1,0 +1,4 @@
+submission_fn,알고리즘,folder_name,F1-Score,Comments,
+0314151407.csv,baseline(scratch),,0.9481096595,baseline(out25)+rnn(out25) concat,
+,baselien(finetune),,,,
+,,,,,

@@ -1,0 +1,5 @@
+*.pyc
+
+checkpoint/*
+notebook/*
+submission/*
