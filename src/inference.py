@@ -19,8 +19,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--base_folder', type=str, default='/home/hyunseoki/ssd1/01_dataset/dacon/LG_plant_disease/data/test')
     parser.add_argument('--save_folder', type=str, default='./submission')
-    parser.add_argument('--weight_folder', type=str, default='/home/hyunseoki/ssd1/02_src/LG_plant_disease/checkpoint/scratch/fold0/0313170457')
-    parser.add_argument('--label_fn', type=str, default=r'./data/sample_submission.csv')
+    parser.add_argument('--weight_folder', type=str)
+    parser.add_argument('--label_fn', type=str, default='./data/sample_submission.csv')
 
     parser.add_argument('--device', type=str, default=device)
     parser.add_argument('--batch_size', type=int, default=32)
