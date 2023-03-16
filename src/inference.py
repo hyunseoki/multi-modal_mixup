@@ -19,8 +19,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--base_folder', type=str, default='/home/hyunseoki/ssd1/01_dataset/dacon/LG_plant_disease/data/test')
     parser.add_argument('--save_folder', type=str, default='./submission')
-    parser.add_argument('--weight_folder', type=str)
+    parser.add_argument('--weight_folder', type=str, default='/home/hyunseoki/ssd1/02_src/LG_plant_disease/checkpoint/baseline_scratch')
     parser.add_argument('--label_fn', type=str, default='./data/sample_submission.csv')
+    parser.add_argument('--model', type=str, default='tf_efficientnetv2_s')
 
     parser.add_argument('--device', type=str, default=device)
     parser.add_argument('--batch_size', type=int, default=32)
@@ -33,7 +34,7 @@ def main():
     assert os.path.isdir(args.weight_folder), 'wrong path'
     assert os.path.isfile(args.label_fn), 'wrong path'
 
-    test_df = pd.read_csv(args.label_fn)[:32]
+    test_df = pd.read_csv(args.label_fn)
 
     test_dataset = DaconDataset(
         base_folder=args.base_folder,
@@ -52,15 +53,19 @@ def main():
         )
 
     model = DaconModel(
-        model_cnn=timm.create_model('tf_efficientnetv2_s', pretrained=False, num_classes=25),
+        model_cnn=timm.create_model(args.model, pretrained=False, num_classes=25),
         model_rnn=DaconLSTM()
     )
 
-    weight_fns = glob.glob(args.weight_folder + '/*.pth')
+    # weight_fns = glob.glob(args.weight_folder + '/*.pth')
+    weight_fns = glob.glob(f'{args.weight_folder}/**/*.pth', recursive=True)
+    assert len(weight_fns) == 5, 'weight가 5개 미만임'
+
     results = np.zeros(shape=(len(test_df), 25))
 
     for weight_fn in weight_fns:
         model = load_model_weights(model, weight_fn)
+        print(f'{weight_fn} is loaded')
         model.to(device)
         model.eval()
 
@@ -81,6 +86,8 @@ def main():
     else:
         save_fn = str(os.path.join(args.save_folder, args.comments)) + '.csv'
     test_df.to_csv(save_fn, index=False)
+    print(f'{save_fn} is saved')
+
 
 if __name__ == '__main__':
     main()
