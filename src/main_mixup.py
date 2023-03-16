@@ -1,8 +1,8 @@
 import os, argparse, torch, timm
 import pandas as pd
 from metric import accuracy_function
-from engine_cutmix import ModelTrainer
-from util import seed_everything, load_model_weights, get_sampler
+from engine_mixup import ModelTrainer
+from util import seed_everything, load_model_weights, get_sampler, str2bool
 from dataset import DaconDataset, get_train_transforms, get_valid_transforms
 from model import DaconLSTM, DaconModel
 
@@ -23,13 +23,15 @@ def main():
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=1e-4)
     
+    parser.add_argument('--csv_mix', type=str2bool, default=False)
     parser.add_argument('--device', type=str, default=device)
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('--comments', type=str, default=None)
 
     args = parser.parse_args()
-    
     assert os.path.isdir(args.base_folder), f'wrong path {args.base_folder}'
+    if args.comments is not None:
+        args.save_folder = os.path.join(args.save_folder, args.comments)
 
     print('=' * 50)
     print('[info msg] arguments')
@@ -38,7 +40,7 @@ def main():
     print('=' * 50)  
 
     train_df = pd.read_csv(f'/home/hyunseoki/ssd1/02_src/LG_plant_disease/data/5fold_seed42/train{args.kfold_idx}.csv')
-    valid_df = pd.read_csv(f'/home/hyunseoki/ssd1/02_src/LG_plant_disease/data/5fold_seed42/train{args.kfold_idx}.csv')
+    valid_df = pd.read_csv(f'/home/hyunseoki/ssd1/02_src/LG_plant_disease/data/5fold_seed42/val{args.kfold_idx}.csv')
 
     train_dataset = DaconDataset(
         base_folder=args.base_folder,
@@ -110,7 +112,7 @@ def main():
             num_snapshops=None,
             parallel=False,
             use_amp=True,
-            use_csv=True,
+            csv_mix=args.csv_mix,
             use_wandb=False,
         )
 
