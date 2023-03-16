@@ -2,6 +2,7 @@ import os
 import random
 import numpy as np
 import torch
+import argparse
 
 
 def seed_everything(seed):
@@ -12,6 +13,15 @@ def seed_everything(seed):
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
+
+def str2bool(v):
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
 def load_model_weights(model, weight_fn):
