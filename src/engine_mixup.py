@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import wandb
-import torchvision
 
 
 class AverageMeter(object):
@@ -52,7 +51,7 @@ def mixup_criterion(criterion, pred, y_a, y_b, lam):
     return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
 
 
-def train(train_loader, model, loss_func, metric_func, device, optimizer, csv_mix):
+def train(train_loader, model, loss_func, metric_func, device, optimizer, mixup_csv):
     running_metric = AverageMeter()
     running_loss = AverageMeter()
 
@@ -77,7 +76,7 @@ def train(train_loader, model, loss_func, metric_func, device, optimizer, csv_mi
                         alpha=1.0
                     )
 
-                    if csv_mix:
+                    if mixup_csv:
                         output = model(mixed_image, mixed_csv)
                     else:
                         output = model(mixed_image, train_csv)
@@ -103,6 +102,7 @@ def train(train_loader, model, loss_func, metric_func, device, optimizer, csv_mi
 
     return running_loss.avg, running_metric.avg
 
+
 def validate(valid_loader, model, loss_func, metric_func, device):
     running_metric = AverageMeter()
     running_loss = AverageMeter()
@@ -123,7 +123,7 @@ def validate(valid_loader, model, loss_func, metric_func, device):
             metric_value = metric_func(train_y.detach().cpu().numpy().tolist(), output.argmax(1).detach().cpu().numpy().tolist())
 
             running_loss.update(loss_value, train_x.size(0))
-            running_metric.update(metric_value, train_x.size(0))                
+            running_metric.update(metric_value, train_x.size(0))
             
             log = 'loss - {:.5f}, metric - {:.5f}'.format(running_loss.avg, running_metric.avg)
             iterator.set_postfix_str(log)
@@ -133,7 +133,7 @@ def validate(valid_loader, model, loss_func, metric_func, device):
 
 class ModelTrainer:
     def __init__(self, model, train_loader, valid_loader, loss_func, metric_func, optimizer, device, save_dir, 
-                       mode='max', scheduler=None, num_epochs=25, num_snapshops=None, parallel=False, csv_mix=True, use_amp=True, use_wandb=True):
+                       mode='max', scheduler=None, num_epochs=25, num_snapshops=None, parallel=False, mixup_csv=True, use_amp=True, use_wandb=True):
 
         assert mode in ['min', 'max']
 
@@ -151,7 +151,7 @@ class ModelTrainer:
         self.num_epochs = num_epochs
         self.num_snapshops = num_snapshops
         self.parallel = parallel
-        self.csv_mix = csv_mix
+        self.mixup_csv = mixup_csv
         self.use_amp = use_amp
         self.use_wandb = use_wandb
 
@@ -184,7 +184,7 @@ class ModelTrainer:
             self.model = torch.nn.DataParallel(self.model)
         else:
             print(f'[info msg] Start training the model on {torch.cuda.get_device_name(torch.cuda.current_device())}')
-        print('=' * 50)              
+        print('=' * 50)
         
         if self.mode =='max':
             best_metric = -float('inf')
@@ -210,7 +210,7 @@ class ModelTrainer:
                 metric_func=self.metric_func,
                 device=self.device,
                 optimizer=self.optimizer,
-                csv_mix=self.csv_mix,
+                mixup_csv=self.mixup_csv,
             )
             self.train_loss.append(train_epoch_loss)
             self.train_metric.append(train_epoch_metric)
@@ -266,11 +266,13 @@ class ModelTrainer:
         self.elapsed_time = datetime.now() - startTime
         self.__save_result()
 
+
     def __save_model(self, param, fn):
         Path(self.save_path).mkdir(parents=True, exist_ok=True)
         full_name = os.path.join(self.save_path, fn)
         torch.save(param, full_name)
         print('MODEL IS SAVED TO {}!!!'.format(full_name))
+
 
     def __save_result(self):    
         train_loss = np.array(self.train_loss)
@@ -341,9 +343,11 @@ class ModelTrainer:
         plt.savefig(os.path.join(self.save_path, 'lr_history.png'))
         # plt.show()
 
+
     @property
     def save_dir(self):
         return self.save_path
+
 
 if __name__ == '__main__':
     pass

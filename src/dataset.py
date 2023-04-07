@@ -4,11 +4,10 @@ import torch
 from torch.utils.data import Dataset
 import os
 import cv2
-import json
 
 
 class DaconDataset(Dataset):
-    def __init__(self, base_folder, label_df, max_len=320, phase='train', transforms=None):
+    def __init__(self, base_folder, label_df, max_len=320, align_csv=False, phase='train', transforms=None):
         assert phase in ['train', 'valid', 'test']
 
         self.base_folder = base_folder
@@ -16,6 +15,7 @@ class DaconDataset(Dataset):
         self.transforms = transforms
         self.phase = phase
         self.max_len = max_len
+        self.align_csv = align_csv
 
         self.label_description = {
                 "1_00_0" : "딸기", 
@@ -61,6 +61,12 @@ class DaconDataset(Dataset):
     def __len__(self):
         return len(self.label_df)
 
+    def __align_csv__(self, df):
+        df = np.array(df)
+        df = cv2.resize(df, dsize=(9, self.max_len), interpolation=cv2.INTER_LINEAR)
+
+        return df
+
     def __getitem__(self, idx):
         pre_fix = str(self.label_df.iloc[idx]['image'])
         
@@ -69,6 +75,7 @@ class DaconDataset(Dataset):
         csv_fn = os.path.join(self.base_folder, pre_fix, pre_fix + '.csv')
 
         ## read image
+        assert os.path.isfile(image_fn)
         sample_image = cv2.imread(image_fn)
         sample_image = cv2.cvtColor(sample_image, cv2.COLOR_BGR2RGB)
 
@@ -81,10 +88,14 @@ class DaconDataset(Dataset):
             sample_csv[col] = sample_csv[col].astype(float) - self.csv_feature_dict[col][0]
             sample_csv[col] = sample_csv[col] / (self.csv_feature_dict[col][1]-self.csv_feature_dict[col][0])
 
-        pad = np.zeros((self.max_len, len(sample_csv.columns)))
-        length = min(self.max_len, len(sample_csv))
-        pad[-length:] = sample_csv.to_numpy()[-length:]
-        sample_csv = pad
+        if self.align_csv:
+            sample_csv = self.__align_csv__(sample_csv)
+
+        else:
+            pad = np.zeros((self.max_len, len(sample_csv.columns)))
+            length = min(self.max_len, len(sample_csv))
+            pad[-length:] = sample_csv.to_numpy()[-length:]
+            sample_csv = pad
 
         sample = dict()
 
@@ -107,7 +118,7 @@ class DaconDataset(Dataset):
 
         sample['image'] = sample_image
         sample['csv'] = sample_csv
-        
+
         return sample
 
     def encode(self, label):
@@ -123,10 +134,13 @@ class DaconDataset(Dataset):
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 
+# sz = 512
+sz = 256
+
 def get_train_transforms():
     return A.Compose(
         [
-            A.Resize(height=528, width=528),
+            A.Resize(height=sz, width=sz),
             A.Affine(
                 scale=(0.9, 1.1),
                 rotate=(15),
@@ -145,7 +159,7 @@ def get_train_transforms():
 def get_valid_transforms():
     return A.Compose(
         [
-            A.Resize(height=528, width=528),
+            A.Resize(height=sz, width=sz),
             A.Normalize(p=1.0),
             ToTensorV2(p=1.0),
         ]
@@ -154,7 +168,7 @@ def get_valid_transforms():
 def get_test_transforms():
     return A.Compose(
         [
-            A.Resize(height=528, width=528),
+            A.Resize(height=sz, width=sz),
             A.Normalize(p=1.0),
             ToTensorV2(p=1.0),
         ]

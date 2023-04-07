@@ -7,7 +7,7 @@ import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
 import timm
-from util import seed_everything, load_model_weights
+from util import seed_everything, load_model_weights, str2bool
 from dataset import DaconDataset, get_test_transforms
 from model import DaconLSTM, DaconModel
 
@@ -22,6 +22,7 @@ def main():
     parser.add_argument('--weight_folder', type=str, default='/home/hyunseoki/ssd1/02_src/LG_plant_disease/checkpoint/baseline_scratch')
     parser.add_argument('--label_fn', type=str, default='./data/sample_submission.csv')
     parser.add_argument('--model', type=str, default='tf_efficientnetv2_s')
+    parser.add_argument('--csv_align', type=str2bool, default=False)
 
     parser.add_argument('--device', type=str, default=device)
     parser.add_argument('--batch_size', type=int, default=32)
@@ -41,6 +42,7 @@ def main():
         label_df=test_df,
         phase='test',
         max_len=320, 
+        align_csv=args.csv_align,
         transforms=get_test_transforms(),
     )
 

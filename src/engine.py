@@ -28,7 +28,7 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def train(train_loader, model, loss_func, metric_func, device, optimizer, use_csv):
+def train(train_loader, model, loss_func, metric_func, device, optimizer, use_csv, scheduler=None):
     running_metric = AverageMeter()
     running_loss = AverageMeter()
 
@@ -57,10 +57,13 @@ def train(train_loader, model, loss_func, metric_func, device, optimizer, use_cs
 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
-            scaler.update()  
+            scaler.update()
+
+            if isinstance(scheduler, torch.optim.lr_scheduler.OneCycleLR):
+                scheduler.step()
 
             running_loss.update(loss_value.item(), train_x.size(0))
-            running_metric.update(metric_value.item(), train_x.size(0))                
+            running_metric.update(metric_value.item(), train_x.size(0))
             
             log = 'loss - {:.5f}, metric - {:.5f}'.format(running_loss.avg, running_metric.avg)
             iterator.set_postfix_str(log)
@@ -161,14 +164,14 @@ class ModelTrainer:
         if self.num_snapshops is not None:
             best_snap_metric = best_metric
             snapshop_period = self.num_epochs // self.num_snapshops
-            cur_num_snapshop = 0            
+            cur_num_snapshop = 0
             snapshop = None
 
         self.model = self.model.to(self.device)
         startTime = datetime.now()     
 
         print('[info msg] training start !!')
-        for epoch in range(self.num_epochs):        
+        for epoch in range(self.num_epochs):
             print('Epoch {}/{}'.format(epoch+1, self.num_epochs))
             train_epoch_loss, train_epoch_metric = train(
                 train_loader=self.train_loader,
@@ -178,6 +181,7 @@ class ModelTrainer:
                 device=self.device,
                 optimizer=self.optimizer,
                 use_csv=self.use_csv,
+                scheduler=self.scheduler if isinstance(self.scheduler, torch.optim.lr_scheduler.OneCycleLR) else None
                 )
             self.train_loss.append(train_epoch_loss)
             self.train_metric.append(train_epoch_metric)
@@ -189,8 +193,8 @@ class ModelTrainer:
                 metric_func=self.metric_func,
                 use_csv=self.use_csv,
                 device=self.device,
-                )                
-            self.valid_loss.append(valid_epoch_loss)        
+                )
+            self.valid_loss.append(valid_epoch_loss)
             self.valid_metric.append(valid_epoch_metric)
             self.lr_curve.append(self.optimizer.param_groups[0]['lr'])
 
@@ -205,6 +209,8 @@ class ModelTrainer:
             if self.scheduler is not None:
                 if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                     self.scheduler.step(valid_epoch_metric)
+                elif isinstance(self.scheduler, torch.optim.lr_scheduler.OneCycleLR):
+                    pass
                 else:
                     self.scheduler.step()
                     # raise NotImplementedError()
@@ -285,7 +291,7 @@ class ModelTrainer:
                     'metric_val': valid_metric,
                 })
 
-        df_learning_curves.to_csv(os.path.join(self.save_path, 'learning_curves.train_csv'), sep=',')
+        df_learning_curves.to_csv(os.path.join(self.save_path, 'learning_curves.csv'), sep=',')
 
         plt.figure(figsize=(15,5))
         plt.subplot(1, 2, 1)
