@@ -17,6 +17,7 @@ def main():
     # parser.add_argument('--kfold_idx', type=int, default=0)
 
     parser.add_argument('--model', type=str, default='resnet50')
+    parser.add_argument('--data_type', type=str, default='all', choices=['img', 'csv', 'all'])
     parser.add_argument('--cnn_backbone', type=str, default='')
     parser.add_argument('--rnn_backbone', type=str, default='')
     parser.add_argument('--epochs', type=int, default=300)
@@ -98,10 +99,17 @@ def main():
         print('=' * 50) 
         rnn_model = load_model_weights(model=rnn_model, weight_fn=rnn_fn)
 
-    model = DaconModel(
-        model_cnn=model_cnn,
-        model_rnn=rnn_model
-    )
+    if args.data_type == 'all':
+        model = DaconModel(
+            model_cnn=model_cnn,
+            model_rnn=rnn_model
+        )
+    elif args.data_type == 'img':
+        model = model_cnn
+    elif args.data_type == 'csv':
+        model = rnn_model
+    else:
+        raise NotImplementedError()
 
     loss = torch.nn.CrossEntropyLoss()
     metric = accuracy_function
@@ -129,7 +137,8 @@ def main():
             num_epochs=args.epochs,
             num_snapshops=None,
             parallel=False,
-            use_csv=True,
+            use_img=False if args.data_type=='csv' else True,
+            use_csv=False if args.data_type=='img' else True,
             use_wandb=False,
         )
 
@@ -173,7 +182,12 @@ def main():
             img, csv = sample['image'].to(args.device), sample['csv'].to(args.device)
             with torch.no_grad():
                 with torch.cuda.amp.autocast():
-                    output = model(img, csv)
+                    if args.data_type=='all':
+                        output = model(img, csv)
+                    elif args.data_type=='img':
+                        output = model(img)
+                    elif args.data_type=='csv':
+                        output = model(csv)
 
             batch_index = idx * args.batch_size
             results[batch_index:batch_index+args.batch_size] += output.clone().detach().cpu().numpy() ## soft-vote

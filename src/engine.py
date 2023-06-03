@@ -28,7 +28,7 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def train(train_loader, model, loss_func, metric_func, device, optimizer, use_csv, scheduler=None):
+def train(train_loader, model, loss_func, metric_func, device, optimizer, use_img, use_csv, scheduler=None):
     running_metric = AverageMeter()
     running_loss = AverageMeter()
 
@@ -39,16 +39,19 @@ def train(train_loader, model, loss_func, metric_func, device, optimizer, use_cs
         for sample in iterator:
             train_x, train_y = sample['image'], sample['label']
             train_x, train_y = train_x.to(device), train_y.to(device)
+            train_csv = sample['csv'].to(device)
 
             optimizer.zero_grad()
 
             with torch.cuda.amp.autocast():
-                if use_csv == True:
-                    train_csv = sample['csv']
-                    train_csv = train_csv.to(device)
+                if use_img and use_csv:
                     output = model(train_x, train_csv)
-                else:
+                elif use_img and not use_csv:
                     output = model(train_x)
+                elif not use_img and use_csv:
+                    output = model(train_csv)
+                else:
+                    raise NotImplementedError()
 
                 loss = loss_func(output, train_y)
 
@@ -71,7 +74,7 @@ def train(train_loader, model, loss_func, metric_func, device, optimizer, use_cs
     return running_loss.avg, running_metric.avg
 
 
-def validate(valid_loader, model, loss_func, metric_func, device, use_csv):
+def validate(valid_loader, model, loss_func, metric_func, device, use_img, use_csv):
     running_metric = AverageMeter()
     running_loss = AverageMeter()
     model.eval()
@@ -80,14 +83,17 @@ def validate(valid_loader, model, loss_func, metric_func, device, use_csv):
         for sample in iterator:
             train_x, train_y = sample['image'], sample['label']
             train_x, train_y = train_x.to(device), train_y.to(device)
+            train_csv = sample['csv'].to(device)
 
             with torch.no_grad():
-                if use_csv == True:
-                    train_csv = sample['csv']
-                    train_csv = train_csv.to(device)
-                    output = model.forward(train_x, train_csv)
+                if use_img and use_csv:
+                    output = model(train_x, train_csv)
+                elif use_img and not use_csv:
+                    output = model(train_x)
+                elif not use_img and use_csv:
+                    output = model(train_csv)
                 else:
-                    output = model.forward(train_x)
+                    raise NotImplementedError()
             
             loss = loss_func(output, train_y)
             loss_value = loss.detach().cpu().numpy()
@@ -104,9 +110,10 @@ def validate(valid_loader, model, loss_func, metric_func, device, use_csv):
 
 class ModelTrainer:
     def __init__(self, model, train_loader, valid_loader, loss_func, metric_func, optimizer, device, save_dir, 
-                       mode='max', scheduler=None, num_epochs=25, num_snapshops=None, parallel=False, use_csv=True, use_cutmix=True, use_wandb=True):
+                       mode='max', scheduler=None, num_epochs=25, num_snapshops=None, parallel=False, use_csv=True, use_img=True, use_wandb=True):
 
         assert mode in ['min', 'max']
+        assert use_img or use_csv
 
         self.model = model
         self.train_loader = train_loader
@@ -122,7 +129,8 @@ class ModelTrainer:
         self.num_epochs = num_epochs
         self.num_snapshops = num_snapshops
         self.parallel = parallel
-        self.use_csv = use_csv  
+        self.use_img = use_img
+        self.use_csv = use_csv
         self.use_wandb = use_wandb
 
         self.elapsed_time = None
@@ -180,9 +188,10 @@ class ModelTrainer:
                 metric_func=self.metric_func,
                 device=self.device,
                 optimizer=self.optimizer,
+                use_img=self.use_img,
                 use_csv=self.use_csv,
                 scheduler=self.scheduler if isinstance(self.scheduler, torch.optim.lr_scheduler.OneCycleLR) else None
-                )
+            )
             self.train_loss.append(train_epoch_loss)
             self.train_metric.append(train_epoch_metric)
 
@@ -191,9 +200,10 @@ class ModelTrainer:
                 model=self.model,
                 loss_func=self.loss_func,
                 metric_func=self.metric_func,
+                use_img=self.use_img,
                 use_csv=self.use_csv,
                 device=self.device,
-                )
+            )
             self.valid_loss.append(valid_epoch_loss)
             self.valid_metric.append(valid_epoch_metric)
             self.lr_curve.append(self.optimizer.param_groups[0]['lr'])
