@@ -201,7 +201,7 @@ class ModelTrainer:
         startTime = datetime.now()     
 
         print('[info msg] training start !!')
-        for epoch in range(self.num_epochs):        
+        for epoch in range(self.num_epochs):
             print('Epoch {}/{}'.format(epoch+1, self.num_epochs))
             train_epoch_loss, train_epoch_metric = train(
                 train_loader=self.train_loader,
@@ -252,8 +252,8 @@ class ModelTrainer:
                     best_snap_metric = valid_epoch_metric
                     snapshop = self.model.state_dict()
 
-                ## save snapshop            
-                if (epoch + 1) % snapshop_period == 0:                             
+                ## save snapshop
+                if (epoch + 1) % snapshop_period == 0:
                     self.__save_model(param=snapshop, fn=f"snapshop_{cur_num_snapshop}.pth")
 
                     if self.mode =='max':

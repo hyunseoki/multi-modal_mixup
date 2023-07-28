@@ -9,11 +9,11 @@ from model import DaconLSTM, DaconModel
 
 def main():
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    seed_everything(42)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--base_folder', type=str, default='/home/hyunseoki/ssd1/01_dataset/dacon/LG_plant_disease/data/train')
-    parser.add_argument('--save_folder', type=str, default='./checkpoint')
+    parser.add_argument('--save_folder', type=str, default='./checkpoint/new_experiment')
+    parser.add_argument('--seed', type=int, default=42)
     # parser.add_argument('--kfold_idx', type=int, default=0)
 
     parser.add_argument('--model', type=str, default='resnet50')
@@ -34,6 +34,7 @@ def main():
     if args.comments is not None:
         args.save_folder = os.path.join(args.save_folder, args.comments)
 
+    seed_everything(args.seed)
     print('=' * 50)
     print('[info msg] arguments')
     for key, value in vars(args).items():
@@ -42,8 +43,8 @@ def main():
 
     # train_df = pd.read_csv(f'/home/hyunseoki/ssd1/02_src/LG_plant_disease/data/5fold_seed42/train{args.kfold_idx}.csv')
     # valid_df = pd.read_csv(f'/home/hyunseoki/ssd1/02_src/LG_plant_disease/data/5fold_seed42/val{args.kfold_idx}.csv')
-    train_df = pd.read_csv(f'/home/hyunseoki/ssd1/02_src/LG_plant_disease/data/paper_work_seed777/train.csv')
-    valid_df = pd.read_csv(f'/home/hyunseoki/ssd1/02_src/LG_plant_disease/data/paper_work_seed777/val.csv')
+    train_df = pd.read_csv(f'/home/hyunseoki/ssd1/02_src/LG_plant_disease_mixup/data/paper_work_seed777/train.csv')
+    valid_df = pd.read_csv(f'/home/hyunseoki/ssd1/02_src/LG_plant_disease_mixup/data/paper_work_seed777/val.csv')
 
     train_dataset = DaconDataset(
         base_folder=args.base_folder,
@@ -69,14 +70,16 @@ def main():
             batch_size=args.batch_size,
             sampler=train_sampler,
             # shuffle=True,
-            num_workers=8,
+            num_workers=12,
+            pin_memory=True,
         )
 
     valid_data_loader = torch.utils.data.DataLoader(
             valid_dataset,
-            batch_size=args.batch_size,
+            batch_size=args.batch_size * 4,
             shuffle=False,
-            num_workers=8,
+            num_workers=12,
+            pin_memory=True,
         )
 
     model_cnn = timm.create_model(args.model, pretrained=True, num_classes=25)
@@ -127,7 +130,7 @@ def main():
         for key, value in vars(args).items():
             f.write('{} : {}\n'.format(key, value)) 
 
-    test_df = pd.read_csv('/home/hyunseoki/ssd1/02_src/LG_plant_disease/data/paper_work_seed777/test.csv')
+    test_df = pd.read_csv('/home/hyunseoki/ssd1/02_src/LG_plant_disease_mixup/data/paper_work_seed777/test.csv')
 
     test_dataset = DaconDataset(
         base_folder=args.base_folder,
