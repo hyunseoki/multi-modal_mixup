@@ -34,7 +34,7 @@ class DaconDataset(Dataset):
                 "5_a7_2" : "Chili_Anthracnose_Intermediate",
                 "5_b6_1" : "Chili_N_Early",
                 "5_b7_1" : "Chili_P_Early",
-                "5_b8_1" : "Chili_P_Early",
+                "5_b8_1" : "Chili_K_Early",
                 "6_00_0" : "Grape",
                 "6_a11_1" : "Grape_Anthracnose_Early",
                 "6_a11_2" : "Grape_Anthracnose_Intermediate",
